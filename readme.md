@@ -25,8 +25,8 @@ Multi-Exchanges-Historical-Data/
 │   ├── mehd.py            // Script principale CLI
 │   └── config.py          // Default: exchange supportati, TF='1m', path dati, toggle CCXT 
 ├── utils/																		// Files di utilità generica
-│   ├── date_utils.py													// Sew serve -> Gestione timestamp/date (stile moment.js)
-│   ├── file_utils.py														// Gestione file Parquet, check esistenza -> Tener compatto -> Se serve un domani lo scomponiamo in più files
+│   ├── date_utils.py													// Se serve -> Gestione timestamp/date (stile moment.js)
+│   ├── file_utils.py												  	// Gestione file Parquet, check esistenza -> Tener compatto -> Se serve un domani lo scomponiamo in più files
 │   ├── inspect_parquet.py										// Prog indipendente per test file parquet -> Lancia con python /utils/inspect_parquet.py
 │   └── logger.py															// Setup logging
 ├── .gitignore						// File da ignorare per caricamento su github
