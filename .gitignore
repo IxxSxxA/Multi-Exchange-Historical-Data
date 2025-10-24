@@ -1,5 +1,4 @@
-# .gitignore
-
-__pycache__/
-*.parquet
-*.log
+.venv
+logs
+__pycache__
+data

@@ -4,7 +4,7 @@ import os
 from utils.date_utils import timestamp_to_datetime
 
 def get_parquet_filename(exchange_id, pair, timeframe, market_type, data_type='candles'):
-    """Genera il nome del file Parquet con struttura organizzata."""
+    """Genera il nome del file Parquet."""
     pair_safe = pair.replace('/', '-').replace(':', '-')
     
     if data_type == 'candles':
@@ -15,10 +15,6 @@ def get_parquet_filename(exchange_id, pair, timeframe, market_type, data_type='c
         return f"{exchange_id}_{market_type}_{pair_safe}_oi.parquet"
     else:
         return f"{exchange_id}_{market_type}_{pair_safe}_{data_type}.parquet"
-
-def get_data_directory(base_path, market_type, data_type):
-    """Restituisce il percorso organizzato per i dati."""
-    return f"{base_path}/{market_type}/{data_type}"
 
 def check_file_exists(path):
     """Controlla se un file esiste."""
@@ -36,8 +32,9 @@ def save_parquet(df, path, append=False):
     if append and check_file_exists(path):
         existing_df = load_parquet(path)
         if not existing_df.empty and not df.empty:
-            # Usa tutte le colonne per il drop_duplicates per sicurezza
-            df = pd.concat([existing_df, df]).drop_duplicates().sort_values('timestamp_ms' if 'timestamp_ms' in df.columns else df.columns[0])
+            # Usa subset esplicito per evitare problemi di tipo
+            subset_cols = ['timestamp_ms'] if 'timestamp_ms' in df.columns else list(df.columns)
+            df = pd.concat([existing_df, df]).drop_duplicates(subset=subset_cols).sort_values('timestamp_ms' if 'timestamp_ms' in df.columns else df.columns[0])
     
     # Assicurati che la directory esista
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -67,92 +64,160 @@ def inspect_parquet(filepath, logger=None):
     # Determina il tipo di dati in base al nome del file
     filename = os.path.basename(filepath)
     
-    if 'funding' in filename:
-        # Ispezione per file funding
-        output(f"📊 ISPEZIONE FUNDING RATE: {filename}")
-        output(f"Numero di record funding: {len(df)}")
+# Ispezione per file candele (default)
+    output(f"📊 ISPEZIONE CANDLE: {filename}")
         
-        if 'timestamp_ms' in df.columns:
-            df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
-            output(f"Data iniziale: {df['datetime'].min()}")
-            output(f"Data finale: {df['datetime'].max()}")
+    # Converti timestamp_ms in datetime per leggibilità
+    if 'timestamp_ms' in df.columns:
+        df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
+      
+    # Stampa informazioni di base
+    output(f"Numero di candele: {len(df)}")
+      
+    if 'datetime' in df.columns:
+        output(f"Data iniziale: {df['datetime'].min()}")
+        output(f"Data finale: {df['datetime'].max()}")
+       
+    # Colonne disponibili
+    output(f"Colonne disponibili: {list(df.columns)}")
+        
+    # Stampa le ultime 5 candele
+    output("Ultime 5 candele:")
+    candle_columns = ['datetime', 'open', 'high', 'low', 'close', 'volume']
+    available_columns = [col for col in candle_columns if col in df.columns]
+    if 'trades_count' in df.columns:
+        available_columns.append('trades_count')
+        
+    if available_columns:
+        output(df[available_columns].tail(5).to_string(index=False))
+        
+    # Controlla i gap nei timestamp (per timeframe 1m, ogni candela dovrebbe essere a +60 secondi)
+    if 'timestamp_ms' in df.columns:
+        df_sorted = df.sort_values('timestamp_ms').reset_index(drop=True)
+        df_sorted['timestamp_diff'] = df_sorted['timestamp_ms'].diff()
+        gaps = df_sorted[df_sorted['timestamp_diff'] > 60000]  # > 1 minuto
             
-            # Statistiche funding rate
-            if 'funding_rate' in df.columns:
-                output(f"Funding rate min: {df['funding_rate'].min():.6f}")
-                output(f"Funding rate max: {df['funding_rate'].max():.6f}")
-                output(f"Funding rate mean: {df['funding_rate'].mean():.6f}")
-                
-            output("Ultimi 5 record funding:")
-            display_columns = ['datetime', 'funding_rate'] if 'funding_rate' in df.columns else ['datetime']
-            output(df[display_columns].tail(5).to_string(index=False))
-            
-    elif 'oi' in filename:
-        # Ispezione per file open interest
-        output(f"📊 ISPEZIONE OPEN INTEREST: {filename}")
-        output(f"Numero di record OI: {len(df)}")
-        
-        if 'timestamp_ms' in df.columns:
-            df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
-            output(f"Data iniziale: {df['datetime'].min()}")
-            output(f"Data finale: {df['datetime'].max()}")
-            
-            # Statistiche open interest
-            if 'open_interest' in df.columns:
-                output(f"Open Interest min: {df['open_interest'].min():.2f}")
-                output(f"Open Interest max: {df['open_interest'].max():.2f}")
-                output(f"Open Interest mean: {df['open_interest'].mean():.2f}")
-                
-            output("Ultimi 5 record open interest:")
-            display_columns = ['datetime', 'open_interest'] if 'open_interest' in df.columns else ['datetime']
-            output(df[display_columns].tail(5).to_string(index=False))
-            
-    else:
-        # Ispezione per file candele (default)
-        output(f"📊 ISPEZIONE CANDLE: {filename}")
-        
-        # Converti timestamp_ms in datetime per leggibilità
-        if 'timestamp_ms' in df.columns:
-            df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
-        
-        # Stampa informazioni di base
-        output(f"Numero di candele: {len(df)}")
-        
-        if 'datetime' in df.columns:
-            output(f"Data iniziale: {df['datetime'].min()}")
-            output(f"Data finale: {df['datetime'].max()}")
-        
-        # Colonne disponibili
-        output(f"Colonne disponibili: {list(df.columns)}")
-        
-        # Stampa le ultime 5 candele
-        output("Ultime 5 candele:")
-        candle_columns = ['datetime', 'open', 'high', 'low', 'close', 'volume']
-        available_columns = [col for col in candle_columns if col in df.columns]
-        if 'trades_count' in df.columns:
-            available_columns.append('trades_count')
-        
-        if available_columns:
-            output(df[available_columns].tail(5).to_string(index=False))
-        
-        # Controlla i gap nei timestamp (per timeframe 1m, ogni candela dovrebbe essere a +60 secondi)
-        if 'timestamp_ms' in df.columns:
-            df_sorted = df.sort_values('timestamp_ms').reset_index(drop=True)
-            df_sorted['timestamp_diff'] = df_sorted['timestamp_ms'].diff()
-            gaps = df_sorted[df_sorted['timestamp_diff'] > 60000]  # > 1 minuto
-            
-            if not gaps.empty:
-                output("⚠️  GAP RILEVATI (differenza > 1 minuto):")
-                # Usa un approccio più semplice e sicuro per iterare
-                for i in range(len(df_sorted)):
-                    if df_sorted.iloc[i]['timestamp_diff'] > 60000:
-                        prev_row = df_sorted.iloc[i-1]
-                        curr_row = df_sorted.iloc[i]
-                        prev_time = timestamp_to_datetime(prev_row['timestamp_ms'])
-                        curr_time = timestamp_to_datetime(curr_row['timestamp_ms'])
-                        gap_seconds = curr_row['timestamp_diff'] / 1000
-                        output(f"Gap tra {prev_time} e {curr_time} ({gap_seconds:.1f} secondi)")
-            else:
-                output("✅ Nessun gap rilevato nei dati (timeline continua)")
+        if not gaps.empty:
+            output("⚠️  GAP RILEVATI (differenza > 1 minuto):")
+            for i in range(len(df_sorted)):
+                if df_sorted.iloc[i]['timestamp_diff'] > 60000:
+                    prev_row = df_sorted.iloc[i-1]
+                    curr_row = df_sorted.iloc[i]
+                    prev_time = timestamp_to_datetime(prev_row['timestamp_ms'])
+                    curr_time = timestamp_to_datetime(curr_row['timestamp_ms'])
+                    gap_seconds = curr_row['timestamp_diff'] / 1000
+                    output(f"Gap tra {prev_time} e {curr_time} ({gap_seconds:.1f} secondi)")
+        else:
+            output("✅ Nessun gap rilevato nei dati (timeline continua)")
     
-    return True
+
+
+
+
+# Copia della funzione sopra per futura referenza con funding e OI
+# def inspect_parquet(filepath, logger=None):
+#     """Ispeziona un file Parquet e restituisce un riepilogo dei dati."""
+#     output = logger.info if logger else print
+    
+#     if not check_file_exists(filepath):
+#         output(f"Errore: Il file {filepath} non esiste.")
+#         return False
+    
+#     # Carica il file Parquet
+#     df = load_parquet(filepath)
+    
+#     if df.empty:
+#         output(f"Il file {filepath} è vuoto.")
+#         return False
+    
+#     # Determina il tipo di dati in base al nome del file
+#     filename = os.path.basename(filepath)
+    
+#     if 'funding' in filename:
+#         # Ispezione per file funding
+#         output(f"📊 ISPEZIONE FUNDING RATE: {filename}")
+#         output(f"Numero di record funding: {len(df)}")
+        
+#         if 'timestamp_ms' in df.columns:
+#             df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
+#             output(f"Data iniziale: {df['datetime'].min()}")
+#             output(f"Data finale: {df['datetime'].max()}")
+            
+#             # Statistiche funding rate
+#             if 'funding_rate' in df.columns:
+#                 output(f"Funding rate min: {df['funding_rate'].min():.6f}")
+#                 output(f"Funding rate max: {df['funding_rate'].max():.6f}")
+#                 output(f"Funding rate mean: {df['funding_rate'].mean():.6f}")
+                
+#             output("Ultimi 5 record funding:")
+#             display_columns = ['datetime', 'funding_rate'] if 'funding_rate' in df.columns else ['datetime']
+#             output(df[display_columns].tail(5).to_string(index=False))
+            
+#     elif 'oi' in filename:
+#         # Ispezione per file open interest
+#         output(f"📊 ISPEZIONE OPEN INTEREST: {filename}")
+#         output(f"Numero di record OI: {len(df)}")
+        
+#         if 'timestamp_ms' in df.columns:
+#             df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
+#             output(f"Data iniziale: {df['datetime'].min()}")
+#             output(f"Data finale: {df['datetime'].max()}")
+            
+#             # Statistiche open interest
+#             if 'open_interest' in df.columns:
+#                 output(f"Open Interest min: {df['open_interest'].min():.2f}")
+#                 output(f"Open Interest max: {df['open_interest'].max():.2f}")
+#                 output(f"Open Interest mean: {df['open_interest'].mean():.2f}")
+                
+#             output("Ultimi 5 record open interest:")
+#             display_columns = ['datetime', 'open_interest'] if 'open_interest' in df.columns else ['datetime']
+#             output(df[display_columns].tail(5).to_string(index=False))
+            
+#     else:
+#         # Ispezione per file candele (default)
+#         output(f"📊 ISPEZIONE CANDLE: {filename}")
+        
+#         # Converti timestamp_ms in datetime per leggibilità
+#         if 'timestamp_ms' in df.columns:
+#             df['datetime'] = df['timestamp_ms'].apply(timestamp_to_datetime)
+        
+#         # Stampa informazioni di base
+#         output(f"Numero di candele: {len(df)}")
+        
+#         if 'datetime' in df.columns:
+#             output(f"Data iniziale: {df['datetime'].min()}")
+#             output(f"Data finale: {df['datetime'].max()}")
+        
+#         # Colonne disponibili
+#         output(f"Colonne disponibili: {list(df.columns)}")
+        
+#         # Stampa le ultime 5 candele
+#         output("Ultime 5 candele:")
+#         candle_columns = ['datetime', 'open', 'high', 'low', 'close', 'volume']
+#         available_columns = [col for col in candle_columns if col in df.columns]
+#         if 'trades_count' in df.columns:
+#             available_columns.append('trades_count')
+        
+#         if available_columns:
+#             output(df[available_columns].tail(5).to_string(index=False))
+        
+#         # Controlla i gap nei timestamp (per timeframe 1m, ogni candela dovrebbe essere a +60 secondi)
+#         if 'timestamp_ms' in df.columns:
+#             df_sorted = df.sort_values('timestamp_ms').reset_index(drop=True)
+#             df_sorted['timestamp_diff'] = df_sorted['timestamp_ms'].diff()
+#             gaps = df_sorted[df_sorted['timestamp_diff'] > 60000]  # > 1 minuto
+            
+#             if not gaps.empty:
+#                 output("⚠️  GAP RILEVATI (differenza > 1 minuto):")
+#                 for i in range(len(df_sorted)):
+#                     if df_sorted.iloc[i]['timestamp_diff'] > 60000:
+#                         prev_row = df_sorted.iloc[i-1]
+#                         curr_row = df_sorted.iloc[i]
+#                         prev_time = timestamp_to_datetime(prev_row['timestamp_ms'])
+#                         curr_time = timestamp_to_datetime(curr_row['timestamp_ms'])
+#                         gap_seconds = curr_row['timestamp_diff'] / 1000
+#                         output(f"Gap tra {prev_time} e {curr_time} ({gap_seconds:.1f} secondi)")
+#             else:
+#                 output("✅ Nessun gap rilevato nei dati (timeline continua)")
+    
+#     return True

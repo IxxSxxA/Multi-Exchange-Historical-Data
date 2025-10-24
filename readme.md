@@ -1,65 +1,151 @@
-# README.md
+### MEHD - Multi-Exchange Historical Data
 
-# Multi-Exchanges-Historical-Data (mehd.py)
+Bot Python per scaricare dati storici crypto da exchange multipli.
+Scarica tutto lo storico disponibile (OHLCV, funding rate, open interest) via API pubbliche CCXT e salva in formato Parquet per analisi/ML.
 
-Bot Python per scaricare dati storici di candele crypto da exchange multipli, al timeframe minimo (1m). Usa CCXT per connettersi agli exchange, come faresti in JS, ma in stile Python per imparare il linguaggio. Scarica tutto lo storico disponibile (OHLC, volume, trades count, ecc.) via API pubbliche e salva in formato Parquet per analisi/ML future (es. TensorFlow, backtest tipo Alpha Arena). Interfaccia CLI semplice: rispondi a poche domande e parte il download. Niente aggregazione o plotting qui – solo dati grezzi e robustezza.
+# 🚀 Caratteristiche
+Exchange Supportati: Binance, Bybit, KuCoin, Gate.io, OKX e exchanges supportati da ccxt
 
-## Scopo
+Dati Scaricati:
+Spot: Candele OHLCV 1m
+Perpetual: Candele OHLCV 1m + Funding Rate + Open Interest
+Formato: Parquet ottimizzato per analisi
+Interfaccia: CLI semplice e intuitiva
+Gestione File: Append intelligente o sovrascrittura
 
-- Pull dati storici completi (dal primo disponibile) per un pair su un exchange.
-- Salva in Parquet per analisi/ML efficienti.
-- CLI minimal: scegli exchange, pair, start date (default: più vecchio possibile).
-- Robustezza: valida exchange/pair, gestisci sovrascrittura/append, logga errori.
-- Espandibile: per live data, aggregazione TF, o plotting, bot futuri.
+# 📁 Struttura Progetto
 
-## Struttura del Progetto
-
-Multi-Exchanges-Historical-Data/
+Multi-Exchange-Historical-Data/
 ├── data/
-│   ├── candles/           												// Candele storiche per exchange/pair/TF
-│   │   ├── binance_BTC-USDT_1m.parquet           // Colonne: timestamp_ms, open, high, low, close, volume, trades_count, ...
-│   │   └── ...            												// Un file  per combo exchange/pair
+│   ├── spot/                          # Candele spot (1m)
+│   │   ├── binance_spot_BTC-USDT_1m.parquet
+│   │   └── bybit_spot_SOL-USDT_1m.parquet
+│   ├── perpetual/                     # Candele perpetual (1m)  
+│   │   ├── bybit_perpetual_BTC-USDT_1m.parquet
+│   │   └── binance_perpetual_ETH-USDT_1m.parquet
+│   ├── funding/                       # Funding rate perpetual (8h)
+│   │   ├── bybit_perpetual_BTC-USDT_funding.parquet
+│   │   └── binance_perpetual_ETH-USDT_funding.parquet
+│   └── open_interest/                 # Open interest perpetual (1h)
+│       ├── bybit_perpetual_BTC-USDT_oi.parquet
+│       └── binance_perpetual_ETH-USDT_oi.parquet
 ├── logs/
-│   ├── 2025-10-17.log     // Log errori/progress
+│   └── 2024-01-15.log                 # Log di esecuzione
 ├── start/
-│   ├── mehd.py            // Script principale CLI
-│   └── config.py          // Default: exchange supportati, TF='1m', path dati, toggle CCXT 
-├── utils/																		// Files di utilità generica
-│   ├── date_utils.py													// Se serve -> Gestione timestamp/date (stile moment.js)
-│   ├── file_utils.py												  	// Gestione file Parquet, check esistenza -> Tener compatto -> Se serve un domani lo scomponiamo in più files
-│   ├── inspect_parquet.py										// Prog indipendente per test file parquet -> Lancia con python /utils/inspect_parquet.py
-│   └── logger.py															// Setup logging
-├── .gitignore						// File da ignorare per caricamento su github
-└── README.md				// Questo file
+│   ├── mehd.py                        # Script principale
+│   └── config.py                      # Configurazione
+├── utils/
+│   ├── check_raw_parquet.py           # Controllo file Parquet
+│   ├── date_utils.py                  # Gestione date/timestamp
+│   ├── file_utils.py                  # Operazioni file Parquet
+│   ├── market_utils.py                # Rilevamento tipo mercato
+│   └── logger.py                      # Sistema di logging
+├── .gitignore
+└── README.md
 
-## Setup
 
-- Installa dipendenze: `pip install ccxt pandas pyarrow tqdm colorama`.
-- Configura `config.py`: lista exchange supportati (da CCXT), default pair (es. 'BTC/USDT'), TF='1m', path dati.
-- No API key necessarie (solo endpoint pubblici).
+# ⚡ Installazione
 
-## Utilizzo
+git clone <repository-url>
+cd Multi-Exchange-Historical-Data
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
 
-- **Scaricare dati**: `python start/mehd.py`
-- **Ispezionare file Parquet**: `python utils/inspect_parquet.py`
-  - Chiede exchange e pair, mostra numero di candele, date iniziali/finali, ultime candele e verifica gap nei dati.
+# .venv\Scripts\activate  # Windows
 
-## Flusso di Esecuzione
+# Installa dipendenze
+pip install ccxt pandas pyarrow tqdm colorama
 
-Lancia python start/mehd.py:
+🎯 Utilizzo e Esempi di Esecuzione:
 
-1. Chiede exchange (lista da CCXT/config; default: binance; valida via ping API).
-2. Chiede pair (es. BTC/USDT; valida via API; check file in data/candles/ -> opzione sovrascrivi/append/ignora).
-3. Chiede start date (default: più vecchio disponibile; check conflitti con dati esistenti). Poi: scarica candele 1m con CCXT, gestisce rate limits, mostra progress (tqdm), logga in logs/. Output: file Parquet in data/candles/ con tutti i campi API (timestamp_ms, OHLC, volume, trades_count, ecc.).
+python start/mehd.py
 
-## Formato Dati
+🚀 Avvio MEHD - Multi-Exchanges Historical Data Downloader
 
-- Parquet: ottimizzato per ML/analisi con pandas. Colonne: timestamp_ms, open, high, low, close, volume, trades_count, altri campi API.
-- Nomi file: {exchange}_{pair}_1m.parquet (es. bybit_ETH-USDT_1m.parquet).
+Exchange [bybit]: bybit
+Asset [BTC]: SOL
 
-## Note per Espansione
+🔍 Cercando coppie disponibili per SOL su bybit...
 
-- ML: carica Parquet in pandas DataFrame per feature engineering (es. normalizza OHLC).
-- Limiti: no buy/sell volumes storici (solo live via websocket); ok per ora.
-- Debug: log dettagliati (errori API, progress); usa tqdm per feedback.
-- Toggle CCXT: in config.py, opzione per implementazioni manuali (Scavalca ccxt per learning python).
+📊 COPPIE TROVATE:
+[1] SOL/USDT (SPOT) - Volume alto
+[2] SOL/USDT:USDT (PERPETUAL) - Volume altissimo
+[3] SOL/BTC (SPOT) - Volume basso
+[4] SOL/USDC (SPOT) - Volume medio  
+[5] SOL/USD (PERPETUAL) - Volume alto
+[6] Tutte le coppie
+
+Scelta [1-6]: 6
+
+💡 METRICHE AGGIUNTIVE (solo perpetual):
+[1] Funding Rate | [2] Open Interest | [3] Tutto
+Selezione: 3
+
+💡 MODALITÀ DOWNLOAD:
+(1) APPEND - Continua da file esistenti  
+(2) OVERWRITE - Ricomincia da zero
+Scelta [1-2]: 1
+
+📅 Start date [2000-01-01]: 2023-01-01
+📊 Formato Dati
+Candele OHLCV (Spot & Perpetual)
+python
+
+# Colonne: timestamp_ms, open, high, low, close, volume, trades_count
+timestamp_ms      open    high    low     close   volume
+1640995200000     100.0   101.0   99.0    100.5   1000
+1640995260000     100.5   101.5   100.0   101.0   1500
+Funding Rate (Perpetual)
+python
+
+# Colonne: timestamp_ms, funding_rate
+timestamp_ms      funding_rate
+1641024000000     0.0001
+1641052800000     0.0002
+Open Interest (Perpetual)
+python
+
+# Colonne: timestamp_ms, open_interest
+timestamp_ms      open_interest
+1640995200000     1500000
+1640998800000     1510000
+
+# ⚙️ Configurazione
+Modifica start/config.py per personalizzare:
+
+python
+SUPPORTED_EXCHANGES = ['binance', 'bybit', 'kucoin', 'gateio', 'okx']
+DEFAULT_EXCHANGE = 'bybit'
+DEFAULT_PAIR = 'BTC/USDT'
+TIMEFRAME = '1m'
+DATA_PATH = 'data'
+LOGS_PATH = 'logs'
+
+# 🔄 Gestione File Esistenti
+APPEND: Continua dall'ultimo timestamp disponibile
+OVERWRITE: Cancella e ricomincia da zero
+Controllo Automatico: Evita duplicati e gap nei timestamp
+
+# 📈 Analisi Dati
+I file Parquet possono essere letti facilmente con pandas:
+
+python
+import pandas as pd
+
+# Carica candele
+df = pd.read_parquet('data/spot/binance_spot_BTC-USDT_1m.parquet')
+
+# Carica funding rate
+funding = pd.read_parquet('data/funding/bybit_perpetual_BTC-USDT_funding.parquet')
+
+# Combina per analisi
+df['funding_rate'] = df['timestamp_ms'].map(
+    funding.set_index('timestamp_ms')['funding_rate']).ffill()
+
+# 🐛 Risoluzione Problemi
+Errore connessione exchange: Verifica la connessione internet e che l'exchange sia operativo
+Rate limit raggiunto: Il programma gestisce automaticamente i limiti API
+File corrotto: Usa OVERWRITE per rigenerare i file problematici
+
+📄 Licenza
+MIT License - Sentiti libero di usare e modificare per i tuoi progetti.

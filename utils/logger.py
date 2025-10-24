@@ -5,7 +5,7 @@ import os
 from colorama import init, Fore, Style
 
 # Inizializza colorama (necessario per Windows)
-init(autoreset=True)  # Autoreset per evitare colori persistenti
+init(autoreset=True)
 
 def setup_logger(logs_path):
     """Setup del logger con output colorato."""
